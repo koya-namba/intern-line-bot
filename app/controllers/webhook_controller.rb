@@ -26,9 +26,9 @@ class WebhookController < ApplicationController
         when Line::Bot::Event::MessageType::Text
           message = {
             type: 'text',
-            text: "userId: " + event['source']['userId'] + "\n" + "groupId: " + event['source']['groupId']
+            text: event.message['text']
           }
-          client.reply_message(event['replyToken'], message)
+          client.reply_message("C4dadc5fd1b923ccd5b9ef364aa5155da", message)
         when Line::Bot::Event::MessageType::Image, Line::Bot::Event::MessageType::Video
           response = client.get_message_content(event.message['id'])
           tf = Tempfile.open("content")
