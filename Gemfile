@@ -44,3 +44,6 @@ gem 'sinatra'
 gem 'bootsnap', require: false
 
 gem 'listen', group: :development
+
+# 環境変数ようのgemを作成
+gem 'dotenv-rails'
