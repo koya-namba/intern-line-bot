@@ -28,7 +28,7 @@ class WebhookController < ApplicationController
             type: 'text',
             text: event.message['text']
           }
-          client.push_message("C4dadc5fd1b923ccd5b9ef364aa5155da", message)
+          client.push_message(ENV['GROUP_ID'], message)
         when Line::Bot::Event::MessageType::Image, Line::Bot::Event::MessageType::Video
           response = client.get_message_content(event.message['id'])
           tf = Tempfile.open("content")
