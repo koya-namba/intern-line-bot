@@ -1,4 +1,6 @@
 class CreateContent
+    # 表示数を設定
+    LIMIT = 3
 
     def self.greeting_only
         # 挨拶メッセージ作成
@@ -9,7 +11,6 @@ class CreateContent
             type: 'text',
             text: greeting
         }
-        return message
     end
 
     def self.greeting(place, food)
@@ -22,16 +23,13 @@ class CreateContent
             type: 'text',
             text: greeting
         }
-        return message
     end
 
     def self.recommend_store(res_data)
         # お勧め飲食店メッセージ作成
         messages = []
         shops = res_data['results']['shop']
-        # 表示数を設定
-        limit = 3
-        shops.first(limit).each do |shop|
+        shops.first(LIMIT).each do |shop|
             recommend_store = <<~EOS
             店名： #{shop['name']}
             最寄駅： #{shop['station_name']}
@@ -43,6 +41,6 @@ class CreateContent
             }
             messages.push(message)
         end
-        return messages
+        messages
     end
 end

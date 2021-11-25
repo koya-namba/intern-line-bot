@@ -1,7 +1,4 @@
-require 'json'
 require 'line/bot'
-require 'net/http'
-require 'uri'
 
 require './app/models/create_content'
 require './app/models/food_search_api'
@@ -37,7 +34,7 @@ class WebhookController < ApplicationController
           res_data = FoodSearchAPI.search(place, food)
 
           # お勧め飲食店が3店舗以上ある場合
-          if res_data["results"]["results_returned"].to_i >= 3
+          if res_data["results"]["results_returned"].to_i >= 1
 
             # グループチャットに久々メッセージ送信
             greeting = CreateContent.greeting(place, food)
@@ -45,7 +42,6 @@ class WebhookController < ApplicationController
 
             # グループチャットにお勧め飲食店を送信
             messages = CreateContent.recommend_store(res_data)
-            puts messages
             messages.each do |message|
               client.push_message(ENV['GROUP_ID'], message)
             end

@@ -1,3 +1,7 @@
+require 'json'
+require 'net/http'
+require 'uri'
+
 class FoodSearchAPI
 
     def self.search(place, food)
@@ -11,8 +15,7 @@ class FoodSearchAPI
         http = Net::HTTP.new(uri.host, uri.port)
         req = Net::HTTP::Get.new(uri)
         res = http.request(req)
-        res_data = Hash.from_xml(res.body)
-        return res_data
+        Hash.from_xml(res.body)
     end
 
 end
