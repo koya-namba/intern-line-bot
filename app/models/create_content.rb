@@ -48,6 +48,17 @@ class CreateContent
     messages
   end
 
+  def self.register(display_name)
+    # グループにユーザが参加した際に登録したことを知らせるメッセージ
+    register = <<~EOS
+    #{display_name}の登録が完了しました！
+    EOS
+    message = {
+      type: 'text',
+      text: register
+    }
+  end
+
   # 個人チャットに送信するメッセージ
 
   def self.register_me
@@ -105,6 +116,17 @@ class CreateContent
     message = {
       type: 'text',
       text: sample_message
+    }
+  end
+
+  def self.group_mistake
+    # グループ名が間違っている場合のメッセージ
+    group_mistake = <<~EOS
+    グループ名が間違ってるよ．
+    EOS
+    message = {
+      type: 'text',
+      text: group_mistake
     }
   end
 

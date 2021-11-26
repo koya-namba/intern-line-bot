@@ -1,7 +1,6 @@
 require 'line/bot'
 
 class WebhookController < ApplicationController
-  STATE = 0
   protect_from_forgery except: [:callback] # CSRF対策無効化
 
   def client
@@ -31,8 +30,9 @@ class WebhookController < ApplicationController
             line_group_id = event['source']['groupId']
             res = JSON.parse(client.get_group_member_profile(line_group_id, line_user_id).body)
             display_name = res['displayName']
-            @user = User.find_or_create_by(line_user_id: line_user_id, display_name: display_name)
-            @group = Group.find_by(line_group_id: line_group_id)
+            @user = User.find_or_create_by!(line_user_id: line_user_id, display_name: display_name)
+            group_name = LineAPI.bot_join(line_group_id)
+            @group = Group.find_or_create_by!(line_group_id: line_group_id, name: group_name)
             begin
               # 今いるグループと自分を結ぶ
               @group.users << @user
@@ -48,7 +48,7 @@ class WebhookController < ApplicationController
             line_user_id = event['source']['userId']
             begin
               # ユーザが見つかった場合
-              @user = User.find_by(line_user_id: line_user_id)
+              @user = User.find_by!(line_user_id: line_user_id)
               @user.group_users.each do |group_user|
                 group_names.push(group_user.group.name)
               end
@@ -62,27 +62,35 @@ class WebhookController < ApplicationController
           
           # メッセージが「メッセージ」から始まる場合，指定グループにお勧め飲食店を送信する
           elsif event.message['text'].start_with?("メッセージ")
+            line_user_id = event['source']['userId']
             group_name, place, food = MessageAnalysis.analysis(event.message['text'])
-            @group = Group.find_by(name: group_name)
-            line_group_id = @group.line_group_id
-            # 場所，料理からお勧めの飲食店を検索
-            res_data = FoodSearchAPI.search(place, food)
-            # お勧め飲食店が1店舗以上ある場合
-            if res_data["results"]["results_returned"].to_i >= 1
+            begin
+              # 送信されたグループ名が合っている場合
+              @group = Group.find_by!(name: group_name)
+              line_group_id = @group.line_group_id
+              # 場所，料理からお勧めの飲食店を検索
+              res_data = FoodSearchAPI.search(place, food)
+              # お勧め飲食店が1店舗以上ある場合
+              if res_data["results"]["results_returned"].to_i >= 1
 
-              # グループチャットに挨拶メッセージ送信
-              greeting = CreateContent.greeting(place, food)
-              client.push_message(line_group_id, greeting)
+                # グループチャットに挨拶メッセージ送信
+                greeting = CreateContent.greeting(place, food)
+                client.push_message(line_group_id, greeting)
 
-              # グループチャットにお勧め飲食店を送信
-              messages = CreateContent.recommend_store(res_data)
-              messages.each do |message|
-                client.push_message(line_group_id, message)
+                # グループチャットにお勧め飲食店を送信
+                messages = CreateContent.recommend_store(res_data)
+                messages.each do |message|
+                  client.push_message(line_group_id, message)
+                end
+              else
+                # お勧め店舗が0店舗以下の場合，挨拶のみを送信
+                greeting_only = CreateContent.greeting_only
+                client.push_message(line_group_id, greeting_only)
               end
-            else
-              # お勧め店舗が0店舗以下の場合，挨拶のみを送信
-              greeting_only = CreateContent.greeting_only
-              client.push_message(line_group_id, greeting_only)
+            rescue => e
+              # 送信されたグループ名が間違っている場合
+              client.push_message(line_user_id, CreateContent.group_mistake)
+              puts e
             end
           
           # メッセージが「使い方」の場合，使い方を送信
@@ -106,15 +114,17 @@ class WebhookController < ApplicationController
       # BotがいるグループにユーザがJoinした場合，そのユーザを登録する
       when Line::Bot::Event::MemberJoined
         line_group_id = event['source']['groupId']
+        group_name = LineAPI.bot_join(line_group_id)
+        @group = Group.find_or_create_by!(line_group_id: line_group_id, name: group_name)
         event['joined']['members'].each do |member|
           line_user_id = member['userId']
           res = JSON.parse(client.get_group_member_profile(line_group_id, line_user_id).body)
           display_name = res['displayName']
-          @user = User.find_or_create_by(line_user_id: line_user_id, display_name: display_name)
-          @group = Group.find_by(line_group_id: line_group_id)
+          @user = User.find_or_create_by!(line_user_id: line_user_id, display_name: display_name)
           begin
             # 今いるグループとユーザを結ぶ
             @group.users << @user
+            client.push_message(line_group_id, CreateContent.register(display_name))
           rescue => e
             puts e
           end
