@@ -127,7 +127,7 @@ class CreateContent
     君に代わって飲食店を紹介するよ
 
     まずは、
-    「久しぶり」
+    「お久しぶり」
     とメッセージを送ってね！
     EOS
     message = {
