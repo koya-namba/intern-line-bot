@@ -5,6 +5,7 @@ require 'uri'
 class FoodSearchAPI
 
   def self.search(place, food)
+    # 場所と料理から飲食店を検索
     data = {
       "key": ENV['API_KEY'], 
       "address": place,

@@ -25,20 +25,43 @@ class WebhookController < ApplicationController
         case event.type
         when Line::Bot::Event::MessageType::Text
 
-          if event.message['text'] == "お久しぶり"
+          # グループに自分を登録
+          if event.message['text'] == "自分を登録"
+            line_user_id = event['source']['userId']
+            line_group_id = event['source']['groupId']
+            res = JSON.parse(client.get_group_member_profile(line_group_id, line_user_id).body)
+            display_name = res['displayName']
+            @user = User.find_or_create_by(line_user_id: line_user_id, display_name: display_name)
+            @group = Group.find_by(line_group_id: line_group_id)
+            begin
+              # 今いるグループと自分を結ぶ
+              @group.users << @user
+              client.push_message(line_group_id, CreateContent.register_me)
+            rescue => e
+              client.push_message(line_group_id, CreateContent.already_registered)
+              puts e
+            end
+          
+          # メッセージが「お久しぶり」の場合，グループ一覧を送信する
+          elsif event.message['text'] == "お久しぶり"
             group_names = []
             line_user_id = event['source']['userId']
-            @user = User.find_by(line_user_id: line_user_id)
-            @user.group_users.each do |group_user|
-              group_names.push(group_user.group.name)
+            begin
+              # ユーザが見つかった場合
+              @user = User.find_by(line_user_id: line_user_id)
+              @user.group_users.each do |group_user|
+                group_names.push(group_user.group.name)
+              end
+              client.push_message(line_user_id, CreateContent.recommend_group(group_names))
+              client.push_message(line_user_id, CreateContent.sample_message)
+            rescue => e
+              # ユーザが見つからなかった場合
+              client.push_message(line_user_id, CreateContent.group_not_found)
+              puts e
             end
-            message = CreateContent.recommend_group(group_names)
-            client.push_message(line_user_id, message)
-            message = CreateContent.sample_message
-            client.push_message(line_user_id, message)
-          end
-
-          if event.message['text'].start_with?("メッセージ")
+          
+          # メッセージが「メッセージ」から始まる場合，指定グループにお勧め飲食店を送信する
+          elsif event.message['text'].start_with?("メッセージ")
             group_name, place, food = MessageAnalysis.analysis(event.message['text'])
             @group = Group.find_by(name: group_name)
             line_group_id = @group.line_group_id
@@ -47,7 +70,7 @@ class WebhookController < ApplicationController
             # お勧め飲食店が1店舗以上ある場合
             if res_data["results"]["results_returned"].to_i >= 1
 
-              # グループチャットに久々メッセージ送信
+              # グループチャットに挨拶メッセージ送信
               greeting = CreateContent.greeting(place, food)
               client.push_message(line_group_id, greeting)
 
@@ -57,11 +80,21 @@ class WebhookController < ApplicationController
                 client.push_message(line_group_id, message)
               end
             else
-              # お勧め店舗が0店舗以下の場合，挨拶のみ
+              # お勧め店舗が0店舗以下の場合，挨拶のみを送信
               greeting_only = CreateContent.greeting_only
               client.push_message(line_group_id, greeting_only)
             end
-            
+          
+          # メッセージが「使い方」の場合，使い方を送信
+          elsif event.message['text'] == "使い方" && event['source']['groupId'] == nil
+            line_user_id = event['source']['userId']
+            client.push_message(line_user_id, CreateContent.how_to_use)
+
+          # 上記以外のメッセージに反応する
+          elsif event['source']['groupId'] == nil
+            line_user_id = event['source']['userId']
+            client.push_message(line_user_id, CreateContent.idle_talk)
+
           end
         
         when Line::Bot::Event::MessageType::Image, Line::Bot::Event::MessageType::Video
@@ -70,24 +103,24 @@ class WebhookController < ApplicationController
           tf.write(response.body)
         end
 
+      # BotがいるグループにユーザがJoinした場合，そのユーザを登録する
       when Line::Bot::Event::MemberJoined
         line_group_id = event['source']['groupId']
         event['joined']['members'].each do |member|
           line_user_id = member['userId']
           res = JSON.parse(client.get_group_member_profile(line_group_id, line_user_id).body)
           display_name = res['displayName']
-          @user = User.find_or_initialize_by(line_user_id: line_user_id, display_name: display_name)
-          if @user.new_record?
-            @user.save
-          end
+          @user = User.find_or_create_by(line_user_id: line_user_id, display_name: display_name)
           @group = Group.find_by(line_group_id: line_group_id)
           begin
+            # 今いるグループとユーザを結ぶ
             @group.users << @user
           rescue => e
             puts e
           end
         end
 
+      # BotがグループにJoinした場合，そのグループをテーブルに登録
       when Line::Bot::Event::Join
         line_group_id = event['source']['groupId']
         group_name = LineAPI.bot_join(line_group_id)
@@ -98,7 +131,6 @@ class WebhookController < ApplicationController
           puts e
         end
       end
-
     }
     head :ok
   end

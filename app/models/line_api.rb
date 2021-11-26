@@ -5,6 +5,7 @@ require 'json'
 class LineAPI
 
   def self.bot_join(line_group_id)
+    # LINEグループIDからグループ名を返す
     uri = URI.parse("https://api.line.me/v2/bot/group/#{line_group_id}/summary")
     request = Net::HTTP::Get.new(uri)
     request["Authorization"] = "Bearer #{ENV['LINE_CHANNEL_TOKEN']}"
